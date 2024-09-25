@@ -6,15 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
-// Mock data for students
-const initialStudents = [
-  { id: 1, name: "John Doe", rollNumber: "R001", status: "pending" },
-  { id: 2, name: "Jane Smith", rollNumber: "R002", status: "pending" },
-  { id: 3, name: "Bob Johnson", rollNumber: "R003", status: "pending" },
-  { id: 4, name: "Alice Brown", rollNumber: "R004", status: "pending" },
-  { id: 5, name: "Charlie Wilson", rollNumber: "R005", status: "pending" },
-];
-
 // Header component with background image
 function Header() {
   return (
@@ -23,7 +14,6 @@ function Header() {
         className="absolute inset-0 bg-cover bg-center z-0"
         style={{
           backgroundImage: "url('/path/to/your/image.jpg')",
-          // Replace with your actual image path
         }}
       />
       <div className="absolute inset-0 bg-black opacity-50 z-10" />
@@ -36,18 +26,42 @@ function Header() {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
 
+interface Student {
+  _id: string;
+  name: string;
+  rollNumber: string;
+  status: 'pending' | 'verified' | 'rejected';
+}
+
 export default function AdminPage() {
-  const [students, setStudents] = useState(initialStudents);
+  const [students, setStudents] = useState<Student[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [totalStatus, setTotalStatus] = useState({
     verified: 0,
     rejected: 0,
-    pending: initialStudents.length,
+    pending: 0,
   });
+  
+  useEffect(() => {
+    fetchStudents();
+  }, []);
 
   useEffect(() => {
     updateTotalStatus();
   }, [students]);
+
+  const fetchStudents = async () => {
+    try {
+      const response = await fetch('/api/students');
+      if (!response.ok) {
+        throw new Error('Failed to fetch students');
+      }
+      const data = await response.json();
+      setStudents(data);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+    }
+  };
 
   const updateTotalStatus = () => {
     const verified = students.filter((s) => s.status === "verified").length;
@@ -56,18 +70,31 @@ export default function AdminPage() {
     setTotalStatus({ verified, rejected, pending });
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    setStudents(
-      students.map((student) =>
-        student.id === id ? { ...student, status: newStatus } : student
-      )
-    );
+  const handleStatusChange = async (id: string, newStatus: 'verified' | 'rejected') => {
+    try {
+      const response = await fetch('/api/students', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update student status');
+      }
+
+      setStudents(students.map((student) =>
+        student._id === id ? { ...student, status: newStatus } : student
+      ));
+    } catch (error) {
+      console.error('Error updating student status:', error);
+    }
   };
 
-  const filteredStudents = students.filter(
-    (student) =>
-      student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredStudents = students.filter((student) =>
+    student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const pieChartData = [
@@ -86,7 +113,7 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             {filteredStudents.map((student) => (
-              <div key={student.id} className="flex items-center justify-between mb-2">
+              <div key={student._id} className="flex items-center justify-between mb-2">
                 <span>
                   {student.name} ({student.rollNumber}) - {student.status}
                 </span>
@@ -94,13 +121,13 @@ export default function AdminPage() {
                   <Button
                     variant="outline"
                     className="mr-2"
-                    onClick={() => handleStatusChange(student.id, "verified")}
+                    onClick={() => handleStatusChange(student._id, "verified")}
                   >
                     Verify
                   </Button>
                   <Button
                     variant="destructive"
-                    onClick={() => handleStatusChange(student.id, "rejected")}
+                    onClick={() => handleStatusChange(student._id, "rejected")}
                   >
                     Reject
                   </Button>
@@ -153,7 +180,7 @@ export default function AdminPage() {
               />
               <div>
                 {filteredStudents.map((student) => (
-                  <div key={student.id}>
+                  <div key={student._id}>
                     {student.name} ({student.rollNumber}) - {student.status}
                   </div>
                 ))}
